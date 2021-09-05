@@ -7,6 +7,7 @@ using DXGI = SharpDX.DXGI;
 using D3D12 = SharpDX.Direct3D12;
 using D3DCompiler = SharpDX.D3DCompiler;
 using SharpDX.Mathematics;
+using SharpDX.Mathematics.Interop;
 
 namespace D3D12HelloTriangleSharp
 {
@@ -22,7 +23,7 @@ namespace D3D12HelloTriangleSharp
         };
 
         // Pipeline objects.
-        private D3D12.Viewport _viewport;
+        private RawViewportF _viewport;
         private Rectangle _scissorRect;
         private DXGI.SwapChain3? _swapChain;
         private D3D12.Device? _device;
@@ -51,8 +52,8 @@ namespace D3D12HelloTriangleSharp
             _frameIndex = 0;
             _viewport = new()
             {
-                TopLeftX = 0,
-                TopLeftY = 0,
+                X = 0,
+                Y = 0,
                 Width = width,
                 Height = height,
                 MinDepth = 0.0f,
@@ -311,6 +312,50 @@ namespace D3D12HelloTriangleSharp
 
             _swapChain?.Dispose();
             _device?.Dispose();
+        }
+
+        public void OnRender()
+        {
+            PopulateCommandList();
+
+            _commandQueue?.ExecuteCommandList(_commandList);
+            _swapChain?.Present(1, 0);
+            
+            WaitForPreviousFrame();
+        }
+
+        public void OnDestroy()
+        {
+            WaitForPreviousFrame();
+            _fenceEvent?.Close();            
+        }
+
+        private void PopulateCommandList()
+        {
+            if (_commandAllocator == null || _commandList == null || _rtvHeap == null)
+            {
+                return;
+            }
+            
+            _commandAllocator.Reset();
+            _commandList.Reset(_commandAllocator, _pipelineState);
+            _commandList.SetGraphicsRootSignature(_rootSignature);
+            _commandList.SetViewport(_viewport);
+            _commandList.SetScissorRectangles(_scissorRect);
+            _commandList.ResourceBarrierTransition(_renderTargets[_frameIndex], D3D12.ResourceStates.Present, D3D12.ResourceStates.RenderTarget);
+
+            var rtvHandle = _rtvHeap.CPUDescriptorHandleForHeapStart + _frameIndex * _rtvDescriptorSize;
+            _commandList.SetRenderTargets(1, rtvHandle, null);
+            
+            _commandList.ClearRenderTargetView(rtvHandle, new Color4(0, 0.2F, 0.4f, 1), 0, null);
+
+            _commandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
+            _commandList.SetVertexBuffer(0, _vertexBufferView);
+            _commandList.DrawInstanced(3, 1, 0, 0);
+            
+            _commandList.ResourceBarrierTransition(_renderTargets[_frameIndex], D3D12.ResourceStates.RenderTarget, D3D12.ResourceStates.Present);
+            
+            _commandList.Close();
         }
 
         private void WaitForPreviousFrame()
