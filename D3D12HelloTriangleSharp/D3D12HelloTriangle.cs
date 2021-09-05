@@ -43,7 +43,7 @@ namespace D3D12HelloTriangleSharp
         private int _frameIndex;
         private EventWaitHandle? _fenceEvent;
         private D3D12.Fence? _fence;
-        private ulong _fenceValue;
+        private long _fenceValue;
 
 
         public D3D12HelloTriangle(IntPtr windowHandle, int width, int height, bool useWarpDevice)
@@ -70,6 +70,7 @@ namespace D3D12HelloTriangleSharp
             try
             {
                 LoadPipeline(windowHandle, width, height, useWarpDevice);
+                LoadAssets(width, height);
             }
             catch
             {
@@ -185,11 +186,7 @@ namespace D3D12HelloTriangleSharp
                 RootSignature = _rootSignature,
                 VertexShader = vertexShader.Bytecode.Data,
                 PixelShader = pixelShader.Bytecode.Data,
-                DomainShader = default,
-                HullShader = default,
-                GeometryShader = default,
-                StreamOutput = null,
-                BlendState = default,
+                BlendState = D3D12.BlendStateDescription.Default(),
                 SampleMask = -1,
                 RasterizerState = D3D12.RasterizerStateDescription.Default(),
                 DepthStencilState = new D3D12.DepthStencilStateDescription
@@ -223,14 +220,13 @@ namespace D3D12HelloTriangleSharp
                 IBStripCutValue = D3D12.IndexBufferStripCutValue.Disabled,
                 PrimitiveTopologyType = D3D12.PrimitiveTopologyType.Triangle,
                 RenderTargetCount = 1,
-                DepthStencilFormat = DXGI.Format.Unknown,
+                DepthStencilFormat = DXGI.Format.D32_Float,
                 SampleDescription = new DXGI.SampleDescription
                 {
                     Count = 1,
                     Quality = 0
                 },
                 NodeMask = 0,
-                CachedPSO = default,
                 Flags = D3D12.PipelineStateFlags.None
             };
             psoDesc.RenderTargetFormats[0] = DXGI.Format.R8G8B8A8_UNorm;
@@ -261,13 +257,38 @@ namespace D3D12HelloTriangleSharp
                 },
             };
 
-            var vertexBufferSize = triangleVertices.Length * Marshal.SizeOf<Vertex>();
+            var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
             _vertexBuffer = _device.CreateCommittedResource(new D3D12.HeapProperties(D3D12.HeapType.Upload),
                 D3D12.HeapFlags.None,
                 D3D12.ResourceDescription.Buffer(vertexBufferSize),
                 D3D12.ResourceStates.GenericRead);
-            
+            var vertexDataBegin = _vertexBuffer.Map(0, new D3D12.Range
+            {
+                Begin = 0,
+                End = 0
+            });
+            try
+            {
+                Utilities.Write(vertexDataBegin, triangleVertices, 0, triangleVertices.Length);
+            }
+            finally
+            {
+                _vertexBuffer.Unmap(0);
+            }
+
+            _vertexBufferView = new D3D12.VertexBufferView
+            {
+                BufferLocation = _vertexBuffer.GPUVirtualAddress,
+                SizeInBytes = vertexBufferSize,
+                StrideInBytes = Utilities.SizeOf<Vertex>()
+            };
+
+            _fence = _device.CreateFence(0, D3D12.FenceFlags.None);
+            _fenceValue = 1;
+            _fenceEvent = new AutoResetEvent(false);
+
+            WaitForPreviousFrame();
         }
 
         public void Dispose()
@@ -289,6 +310,24 @@ namespace D3D12HelloTriangleSharp
 
             _swapChain?.Dispose();
             _device?.Dispose();
+        }
+
+        private void WaitForPreviousFrame()
+        {
+            if (_commandQueue == null || _fence == null || _fenceEvent == null || _swapChain == null)
+            {
+                return;
+            }
+            var fence = _fenceValue;
+            _commandQueue.Signal(_fence, fence);
+            _fenceValue++;
+            if (_fence.CompletedValue < fence)
+            {
+                _fence.SetEventOnCompletion(fence, _fenceEvent.SafeWaitHandle.DangerousGetHandle());
+                _fenceEvent.WaitOne();
+            }
+
+            _frameIndex = _swapChain.CurrentBackBufferIndex;
         }
 
 
