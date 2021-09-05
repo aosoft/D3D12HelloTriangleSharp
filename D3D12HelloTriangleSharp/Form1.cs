@@ -27,8 +27,15 @@ namespace D3D12HelloTriangleSharp
 
         protected override void OnClosed(EventArgs e)
         {
+            _renderer?.OnDestroy();
             _renderer?.Dispose();
             base.OnClosed(e);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            _renderer?.OnRender();
         }
     }
 }
