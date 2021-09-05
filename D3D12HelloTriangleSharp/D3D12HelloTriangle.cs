@@ -186,6 +186,7 @@ namespace D3D12HelloTriangleSharp
                 RootSignature = _rootSignature,
                 VertexShader = vertexShader.Bytecode.Data,
                 PixelShader = pixelShader.Bytecode.Data,
+                StreamOutput = new D3D12.StreamOutputDescription(),
                 BlendState = D3D12.BlendStateDescription.Default(),
                 SampleMask = -1,
                 RasterizerState = D3D12.RasterizerStateDescription.Default(),
