@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Runtime.InteropServices;
+using System.Threading;
 using SharpDX;
 using D3D = SharpDX.Direct3D;
 using DXGI = SharpDX.DXGI;
 using D3D12 = SharpDX.Direct3D12;
+using D3DCompiler = SharpDX.D3DCompiler;
 using SharpDX.Mathematics;
 
 namespace D3D12HelloTriangleSharp
@@ -10,7 +13,8 @@ namespace D3D12HelloTriangleSharp
     public sealed class D3D12HelloTriangle : IDisposable
     {
         private const int FrameCount = 2;
-        
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
         struct Vertex
         {
             public Vector3 Position;
@@ -37,7 +41,7 @@ namespace D3D12HelloTriangleSharp
 
         // Synchronization objects.
         private int _frameIndex;
-        private IntPtr _fenceEvent;
+        private EventWaitHandle? _fenceEvent;
         private D3D12.Fence? _fence;
         private ulong _fenceValue;
 
@@ -151,15 +155,128 @@ namespace D3D12HelloTriangleSharp
 
             _commandAllocator = _device.CreateCommandAllocator(D3D12.CommandListType.Direct);
         }
-        
+
+        private void LoadAssets(int width, int height)
+        {
+            if (_device == null)
+            {
+                throw new InvalidOperationException();
+            }
+
+            var rootSignatureDesc =
+                new D3D12.RootSignatureDescription(D3D12.RootSignatureFlags.AllowInputAssemblerInputLayout);
+            using (var signature = rootSignatureDesc.Serialize())
+            {
+                _rootSignature = _device.CreateRootSignature(signature);
+            }
+
+            var compileFlags =
+#if DEBUG
+                D3DCompiler.ShaderFlags.Debug | D3DCompiler.ShaderFlags.SkipOptimization;
+#else
+                D3DCompiler.ShaderFlags.None;
+#endif
+
+            using var vertexShader = D3DCompiler.ShaderBytecode.Compile(Hlsl, "VSMain", "vs_5_0", compileFlags);
+            using var pixelShader = D3DCompiler.ShaderBytecode.Compile(Hlsl, "PSMain", "ps_5_0", compileFlags);
+
+            var psoDesc = new D3D12.GraphicsPipelineStateDescription
+            {
+                RootSignature = _rootSignature,
+                VertexShader = vertexShader.Bytecode.Data,
+                PixelShader = pixelShader.Bytecode.Data,
+                DomainShader = default,
+                HullShader = default,
+                GeometryShader = default,
+                StreamOutput = null,
+                BlendState = default,
+                SampleMask = -1,
+                RasterizerState = D3D12.RasterizerStateDescription.Default(),
+                DepthStencilState = new D3D12.DepthStencilStateDescription
+                {
+                    IsDepthEnabled = false,
+                    IsStencilEnabled = false,
+                },
+                InputLayout = new D3D12.InputElement[]
+                {
+                    new()
+                    {
+                        SemanticName = "POSITION",
+                        SemanticIndex = 0,
+                        Format = DXGI.Format.R32G32B32_Float,
+                        Slot = 0,
+                        AlignedByteOffset = 0,
+                        Classification = D3D12.InputClassification.PerVertexData,
+                        InstanceDataStepRate = 0
+                    },
+                    new()
+                    {
+                        SemanticName = "COLOR",
+                        SemanticIndex = 0,
+                        Format = DXGI.Format.R32G32B32_Float,
+                        Slot = 0,
+                        AlignedByteOffset = 12,
+                        Classification = D3D12.InputClassification.PerVertexData,
+                        InstanceDataStepRate = 0
+                    },
+                },
+                IBStripCutValue = D3D12.IndexBufferStripCutValue.Disabled,
+                PrimitiveTopologyType = D3D12.PrimitiveTopologyType.Triangle,
+                RenderTargetCount = 1,
+                DepthStencilFormat = DXGI.Format.Unknown,
+                SampleDescription = new DXGI.SampleDescription
+                {
+                    Count = 1,
+                    Quality = 0
+                },
+                NodeMask = 0,
+                CachedPSO = default,
+                Flags = D3D12.PipelineStateFlags.None
+            };
+            psoDesc.RenderTargetFormats[0] = DXGI.Format.R8G8B8A8_UNorm;
+
+            _pipelineState = _device.CreateGraphicsPipelineState(psoDesc);
+            _commandList =
+                _device.CreateCommandList(0, D3D12.CommandListType.Direct, _commandAllocator, _pipelineState);
+            _commandList.Close();
+
+            var aspectRatio = (float)width / height;
+
+            var triangleVertices = new Vertex[]
+            {
+                new()
+                {
+                    Position = new(0.0f, 0.25f * aspectRatio, 0.0f),
+                    Color = new(1.0f, 0.0f, 0.0f, 1.0f)
+                },
+                new()
+                {
+                    Position = new(0.25f, -0.25f * aspectRatio, 0.0f),
+                    Color = new(0.0f, 1.0f, 0.0f, 1.0f)
+                },
+                new()
+                {
+                    Position = new(-0.25f, -0.25f * aspectRatio, 0.0f),
+                    Color = new(0.0f, 0.0f, 1.0f, 1.0f)
+                },
+            };
+
+            var vertexBufferSize = triangleVertices.Length * Marshal.SizeOf<Vertex>();
+
+            _vertexBuffer = _device.CreateCommittedResource(new D3D12.HeapProperties(D3D12.HeapType.Upload),
+                D3D12.HeapFlags.None,
+                D3D12.ResourceDescription.Buffer(vertexBufferSize),
+                D3D12.ResourceStates.GenericRead);
+            
+        }
+
         public void Dispose()
         {
-            _swapChain?.Dispose();
-            _device?.Dispose();
             foreach (var rt in _renderTargets)
             {
                 rt?.Dispose();
             }
+
             _commandAllocator?.Dispose();
             _commandQueue?.Dispose();
             _rootSignature?.Dispose();
@@ -168,13 +285,13 @@ namespace D3D12HelloTriangleSharp
             _commandList?.Dispose();
             _vertexBuffer?.Dispose();
             _fence?.Dispose();
+            _fenceEvent?.Dispose();
+
+            _swapChain?.Dispose();
+            _device?.Dispose();
         }
 
-        
-        
-        
-        
-        
+
         private static DXGI.Adapter1? GetHardwareAdapter(DXGI.Factory1 factory)
         {
             var count = factory.GetAdapterCount1();
@@ -194,5 +311,27 @@ namespace D3D12HelloTriangleSharp
             return null;
         }
 
+        private static readonly string Hlsl = @"
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+PSInput VSMain(float4 position : POSITION, float4 color : COLOR)
+{
+    PSInput result;
+
+    result.position = position;
+    result.color = color;
+
+    return result;
+}
+
+float4 PSMain(PSInput input) : SV_TARGET
+{
+    return input.color;
+}
+";
     }
 }
