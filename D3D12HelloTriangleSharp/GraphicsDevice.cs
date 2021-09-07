@@ -53,10 +53,6 @@ namespace D3D12HelloTriangleSharp
         public D3D12.CommandAllocator CommandAllocator { get; }
         public D3D12.CommandQueue CommandQueue { get; }
         /*
-        public D3D12.RootSignature RootSignature { get; }
-        public D3D12.DescriptorHeap RtvHeap { get; }
-        public D3D12.PipelineState PipelineState { get; }
-        public D3D12.GraphicsCommandList CommandList { get; }
         */
     
         private static DXGI.Adapter1? GetHardwareAdapter(DXGI.Factory1 factory)
