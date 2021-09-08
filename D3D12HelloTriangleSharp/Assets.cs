@@ -15,7 +15,7 @@ namespace D3D12HelloTriangleSharp
         public Vector4 Color;
     };
     
-    public class Assets
+    public sealed class Assets
     {
         public Assets()
         {

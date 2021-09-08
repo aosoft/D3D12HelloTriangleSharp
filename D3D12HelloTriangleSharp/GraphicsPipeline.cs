@@ -46,7 +46,10 @@ namespace D3D12HelloTriangleSharp
             };
             psoDesc.RenderTargetFormats[0] = DXGI.Format.R8G8B8A8_UNorm;
             PipelineState = device.Device.CreateGraphicsPipelineState(psoDesc);
-
+            CommandList =
+                device.Device.CreateCommandList(0, D3D12.CommandListType.Direct, device.CommandAllocator, PipelineState);
+            CommandList.Close();
+            
             var vertices = assets.GetVerticies((float)width / height);
             VertexBuffer = device.Device.CreateCommittedResource(new D3D12.HeapProperties(D3D12.HeapType.Upload),
                 D3D12.HeapFlags.None,
@@ -80,8 +83,6 @@ namespace D3D12HelloTriangleSharp
         }
         
         public D3D12.RootSignature RootSignature { get; }
-        public D3D12.DescriptorHeap RtvHeap { get; }
-        public int RtvDescriptorSize { get; }
         
         public D3D12.PipelineState PipelineState { get; }
         public D3D12.GraphicsCommandList CommandList { get; }
