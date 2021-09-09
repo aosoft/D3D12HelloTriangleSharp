@@ -8,7 +8,7 @@ namespace D3D12HelloTriangleSharp
 {
     public sealed class GraphicsDevice : IDisposable
     {
-        public GraphicsDevice(bool useWarpDevice, int frameCount)
+        public GraphicsDevice(bool useWarpDevice)
         {
             bool debug = false;
 #if DEBUG
@@ -19,16 +19,16 @@ namespace D3D12HelloTriangleSharp
                 debug = true;
             }
 #endif
-            using var factory2 = new DXGI.Factory2(debug);
-            using var factory = factory2.QueryInterface<DXGI.Factory4>();
+            using var factory = new DXGI.Factory2(debug);
+            Factory = factory.QueryInterface<DXGI.Factory4>();
             if (useWarpDevice)
             {
-                using var warpAdapter = factory.GetWarpAdapter();
+                using var warpAdapter = Factory.GetWarpAdapter();
                 Device = new D3D12.Device(warpAdapter, D3D.FeatureLevel.Level_11_0);
             }
             else
             {
-                using var hardwareAdapter = GetHardwareAdapter(factory);
+                using var hardwareAdapter = GetHardwareAdapter(Factory);
                 Device = new D3D12.Device(hardwareAdapter, D3D.FeatureLevel.Level_11_0);
             }
             
@@ -47,8 +47,13 @@ namespace D3D12HelloTriangleSharp
         
         public void Dispose()
         {
+            CommandQueue.Dispose();
+            CommandAllocator.Dispose();
+            Device.Dispose();
+            Factory.Dispose();
         }
         
+        public DXGI.Factory4 Factory { get; }
         public D3D12.Device Device { get; }
         public D3D12.CommandAllocator CommandAllocator { get; }
         public D3D12.CommandQueue CommandQueue { get; }

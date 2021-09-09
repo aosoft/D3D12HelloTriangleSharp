@@ -11,16 +11,17 @@ namespace D3D12HelloTriangleSharp
         private D3D12.Fence _fence;
         private long _fenceValue;
 
-        public Fence(D3D12.Device device, D3D12.CommandQueue commandQueue)
+        public Fence(GraphicsDevice device)
         {
-            _commandQueue = commandQueue;
-            _fence = device.CreateFence(0, D3D12.FenceFlags.None);
+            _commandQueue = device.CommandQueue;
+            _fence = device.Device.CreateFence(0, D3D12.FenceFlags.None);
             _fenceValue = 1;
             _fenceEvent = new AutoResetEvent(false);
         }
         
         public void Dispose()
         {
+            _fenceEvent.Close();            
             _fence.Dispose();
             _fenceEvent.Dispose();
         }

@@ -8,7 +8,7 @@ namespace D3D12HelloTriangleSharp
     {
         private int _rtvDescriptorSize;
         
-        public Display(DXGI.Factory2 factory, GraphicsDevice device, IntPtr windowHandle, int width, int height, int frameCount)
+        public Display(GraphicsDevice device, IntPtr windowHandle, int width, int height, int frameCount)
         {
             var swapChainDesc = new DXGI.SwapChainDescription1
             {
@@ -28,9 +28,9 @@ namespace D3D12HelloTriangleSharp
                 AlphaMode = DXGI.AlphaMode.Unspecified,
                 Flags = DXGI.SwapChainFlags.None
             };
-            using var swapChain = new DXGI.SwapChain1(factory, device.CommandQueue, windowHandle, ref swapChainDesc);
+            using var swapChain = new DXGI.SwapChain1(device.Factory, device.CommandQueue, windowHandle, ref swapChainDesc);
             SwapChain = swapChain.QueryInterface<DXGI.SwapChain3>();
-            factory.MakeWindowAssociation(windowHandle, DXGI.WindowAssociationFlags.IgnoreAltEnter);
+            device.Factory.MakeWindowAssociation(windowHandle, DXGI.WindowAssociationFlags.IgnoreAltEnter);
             
             var rtvHeapDesc = new D3D12.DescriptorHeapDescription
             {
