@@ -126,8 +126,6 @@ namespace D3D12HelloTriangleSharp
         }
         
         public D3D12.GraphicsCommandList CommandList { get; }
-        
-        public GraphicsPipelineConstantBuffer ConstantBuffer { get; set; }
 
         public void PopulateCommandList(D3D12.CommandAllocator commandAllocator, D3D12.Resource rt,
             D3D12.CpuDescriptorHandle rtvHandle)
