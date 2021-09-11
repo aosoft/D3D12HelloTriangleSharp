@@ -8,7 +8,7 @@ namespace D3D12HelloTriangleSharp
         
         private GraphicsDevice _device;
         private GraphicsPipeline _pipeline;
-        private Assets _assets = new Assets();
+        private Shader _shader = new Shader();
         private Fence _fence;
 
         private Display _display;
@@ -16,7 +16,7 @@ namespace D3D12HelloTriangleSharp
         public D3D12HelloTriangle(IntPtr windowHandle, int width, int height, bool useWarpDevice)
         {
             _device = new GraphicsDevice(useWarpDevice);
-            _pipeline = new GraphicsPipeline(_device, width, height, _assets);
+            _pipeline = new GraphicsPipeline(_device, width, height, _shader);
             _fence = new Fence(_device);
             
             _display = new Display(_device, windowHandle, width, height, FrameCount);
@@ -35,7 +35,7 @@ namespace D3D12HelloTriangleSharp
             
             _pipeline.PopulateCommandList(_device.CommandAllocator, _display.RenderTargets[frameIndex],
                 _display.GetRtvCpuDescriptorHandle(frameIndex));
-            _pipeline.ExecuteCommandList(_device.CommandQueue);
+            _device.CommandQueue.ExecuteCommandList(_pipeline.CommandList);
             _display.SwapChain.Present(1, 0);
             _fence.WaitForPreviousFrame();
         }

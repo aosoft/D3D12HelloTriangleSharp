@@ -15,9 +15,9 @@ namespace D3D12HelloTriangleSharp
         public Vector4 Color;
     };
     
-    public sealed class Assets
+    public sealed class Shader
     {
-        public Assets()
+        public Shader()
         {
             var compileFlags =
 #if DEBUG

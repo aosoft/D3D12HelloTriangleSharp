@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using SharpDX;
 using SharpDX.Mathematics.Interop;
 using D3D = SharpDX.Direct3D;
@@ -7,17 +8,28 @@ using DXGI = SharpDX.DXGI;
 
 namespace D3D12HelloTriangleSharp
 {
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public readonly struct GraphicsPipelineConstantBuffer
+    {
+        private readonly float _ratio;
+        public float Ratio => _ratio;
+
+        public GraphicsPipelineConstantBuffer(float ratio)
+        {
+            _ratio = ratio;
+        }
+    }
+
     public sealed class GraphicsPipeline : IDisposable
     {
         private RawViewportF _viewport;
         private Rectangle _scissorRect;
         private readonly D3D12.RootSignature _rootSignature;
         private readonly D3D12.PipelineState _pipelineState;
-        private readonly D3D12.GraphicsCommandList _commandList;
         private readonly D3D12.Resource _vertexBuffer;
         private readonly D3D12.VertexBufferView _vertexBufferView;
-        
-        public GraphicsPipeline(GraphicsDevice device, int width, int height, Assets assets)
+
+        public GraphicsPipeline(GraphicsDevice device, int width, int height, Shader shader)
         {
             _viewport = new()
             {
@@ -36,19 +48,19 @@ namespace D3D12HelloTriangleSharp
                 Right = width,
                 Bottom = height,
             };
-            
+
             var rootSignatureDesc =
                 new D3D12.RootSignatureDescription(D3D12.RootSignatureFlags.AllowInputAssemblerInputLayout);
             using (var signature = rootSignatureDesc.Serialize())
             {
                 _rootSignature = device.Device.CreateRootSignature(signature);
             }
-            
+
             var psoDesc = new D3D12.GraphicsPipelineStateDescription
             {
                 RootSignature = _rootSignature,
-                VertexShader = assets.VertexShader,
-                PixelShader = assets.PixelShader,
+                VertexShader = shader.VertexShader,
+                PixelShader = shader.PixelShader,
                 StreamOutput = new D3D12.StreamOutputDescription(),
                 BlendState = D3D12.BlendStateDescription.Default(),
                 SampleMask = -1,
@@ -58,7 +70,7 @@ namespace D3D12HelloTriangleSharp
                     IsDepthEnabled = false,
                     IsStencilEnabled = false,
                 },
-                InputLayout = assets.InputLayout,
+                InputLayout = shader.InputLayout,
                 IBStripCutValue = D3D12.IndexBufferStripCutValue.Disabled,
                 PrimitiveTopologyType = D3D12.PrimitiveTopologyType.Triangle,
                 RenderTargetCount = 1,
@@ -73,15 +85,16 @@ namespace D3D12HelloTriangleSharp
             };
             psoDesc.RenderTargetFormats[0] = DXGI.Format.R8G8B8A8_UNorm;
             _pipelineState = device.Device.CreateGraphicsPipelineState(psoDesc);
-            _commandList =
-                device.Device.CreateCommandList(0, D3D12.CommandListType.Direct, device.CommandAllocator, _pipelineState);
-            _commandList.Close();
-            
-            var vertices = assets.GetVerticies((float)width / height);
+            CommandList =
+                device.Device.CreateCommandList(0, D3D12.CommandListType.Direct, device.CommandAllocator,
+                    _pipelineState);
+            CommandList.Close();
+
+            var vertices = shader.GetVerticies((float)width / height);
             _vertexBuffer = device.Device.CreateCommittedResource(new D3D12.HeapProperties(D3D12.HeapType.Upload),
                 D3D12.HeapFlags.None,
-                D3D12.ResourceDescription.Buffer(Utilities.SizeOf(vertices)),
-                D3D12.ResourceStates.GenericRead);
+    D3D12.ResourceDescription.Buffer(Utilities.SizeOf(vertices)),
+    D3D12.ResourceStates.GenericRead);
             var vertexDataBegin = _vertexBuffer.Map(0, new D3D12.Range
             {
                 Begin = 0,
@@ -103,38 +116,40 @@ namespace D3D12HelloTriangleSharp
                 StrideInBytes = Utilities.SizeOf<Vertex>()
             };
         }
-        
+
         public void Dispose()
         {
             _rootSignature.Dispose();
             _pipelineState.Dispose();
-            _commandList.Dispose();
+            CommandList.Dispose();
             _vertexBuffer.Dispose();
         }
+        
+        public D3D12.GraphicsCommandList CommandList { get; }
+        
+        public GraphicsPipelineConstantBuffer ConstantBuffer { get; set; }
 
-        public void PopulateCommandList(D3D12.CommandAllocator commandAllocator, D3D12.Resource rt, D3D12.CpuDescriptorHandle rtvHandle)
+        public void PopulateCommandList(D3D12.CommandAllocator commandAllocator, D3D12.Resource rt,
+            D3D12.CpuDescriptorHandle rtvHandle)
         {
             commandAllocator.Reset();
-            _commandList.Reset(commandAllocator, _pipelineState);
-            _commandList.SetGraphicsRootSignature(_rootSignature);
-            _commandList.SetViewport(_viewport);
-            _commandList.SetScissorRectangles(_scissorRect);
-            _commandList.ResourceBarrierTransition(rt, D3D12.ResourceStates.Present, D3D12.ResourceStates.RenderTarget);
+            CommandList.Reset(commandAllocator, _pipelineState);
+            CommandList.SetGraphicsRootSignature(_rootSignature);
+            CommandList.SetViewport(_viewport);
+            CommandList.SetScissorRectangles(_scissorRect);
+            CommandList.ResourceBarrierTransition(rt, D3D12.ResourceStates.Present, D3D12.ResourceStates.RenderTarget);
 
-            _commandList.SetRenderTargets(1, rtvHandle, null);
-            
-            _commandList.ClearRenderTargetView(rtvHandle, new Color4(0, 0.2F, 0.4f, 1), 0, null);
+            CommandList.SetRenderTargets(1, rtvHandle, null);
 
-            _commandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
-            _commandList.SetVertexBuffer(0, _vertexBufferView);
-            _commandList.DrawInstanced(3, 1, 0, 0);
-            
-            _commandList.ResourceBarrierTransition(rt, D3D12.ResourceStates.RenderTarget, D3D12.ResourceStates.Present);
-            
-            _commandList.Close();
+            CommandList.ClearRenderTargetView(rtvHandle, new Color4(0, 0.2F, 0.4f, 1), 0, null);
+
+            CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
+            CommandList.SetVertexBuffer(0, _vertexBufferView);
+            CommandList.DrawInstanced(3, 1, 0, 0);
+
+            CommandList.ResourceBarrierTransition(rt, D3D12.ResourceStates.RenderTarget, D3D12.ResourceStates.Present);
+
+            CommandList.Close();
         }
-
-        public void ExecuteCommandList(D3D12.CommandQueue commandQueue) =>
-            commandQueue.ExecuteCommandList(_commandList);
     }
 }
