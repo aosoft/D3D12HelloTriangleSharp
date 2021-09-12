@@ -22,7 +22,7 @@ namespace D3D12HelloTriangleSharp
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            _renderer = new D3D12HelloTriangle(Handle, Width, Height, false);
+            _renderer = new D3D12HelloTriangle(panel1.Handle, panel1.Width, panel1.Height, false);
         }
 
         protected override void OnClosed(EventArgs e)
@@ -36,6 +36,16 @@ namespace D3D12HelloTriangleSharp
         {
             base.OnPaint(e);
             _renderer?.OnRender();
+        }
+
+        private void trackBar1_ValueChanged(object sender, EventArgs e)
+        {
+            if (_renderer != null)
+            {
+                _renderer.Ratio = (float)trackBar1.Value / 100.0f;
+                _renderer.OnRender();
+                System.Threading.Thread.Sleep(20);
+            }
         }
     }
 }

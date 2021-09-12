@@ -38,6 +38,9 @@ namespace D3D12HelloTriangleSharp
                 SizeInBytes = _bufferSize
             }, Heap.CPUDescriptorHandleForHeapStart);
             _mapped = _constantBuffer.Map(0, new D3D12.Range());
+
+            Ratio = 1.0f;
+            Update();
         }
 
         public void Dispose()

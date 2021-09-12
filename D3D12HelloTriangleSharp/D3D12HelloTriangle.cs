@@ -32,11 +32,16 @@ namespace D3D12HelloTriangleSharp
             _fence.Dispose();
         }
 
+        public float Ratio
+        {
+            get => _cb.Ratio;
+            set => _cb.Ratio = value;
+        }
+
         public void OnRender()
         {
             var frameIndex = _display.SwapChain.CurrentBackBufferIndex;
 
-            _cb.Ratio = 0.8f;
             _cb.Update();
             _pipeline.PopulateCommandList(_device.CommandAllocator, _display.RenderTargets[frameIndex],
                 _display.GetRtvCpuDescriptorHandle(frameIndex), _cb);
