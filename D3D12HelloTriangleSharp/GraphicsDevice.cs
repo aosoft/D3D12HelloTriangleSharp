@@ -12,7 +12,7 @@ namespace D3D12HelloTriangleSharp
         {
             bool debug = false;
 #if DEBUG
-            var debugController = D3D12.DebugInterface.Get();
+            using var debugController = D3D12.DebugInterface.Get();
             if (debugController != null)
             {
                 debugController.EnableDebugLayer();

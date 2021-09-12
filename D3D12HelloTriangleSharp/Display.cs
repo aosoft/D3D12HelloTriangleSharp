@@ -58,6 +58,7 @@ namespace D3D12HelloTriangleSharp
                 rt.Dispose();
             }
             SwapChain?.Dispose();
+            RtvHeap.Dispose();
         }
         
         public DXGI.SwapChain3 SwapChain { get; }

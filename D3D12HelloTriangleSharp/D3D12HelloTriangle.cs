@@ -6,54 +6,51 @@ namespace D3D12HelloTriangleSharp
     {
         private const int FrameCount = 2;
         
-        private GraphicsDevice _device;
-        private GraphicsPipeline _pipeline;
-        private Shader _shader = new Shader();
-        private ShaderConstantBuffer _cb;
-        private Fence _fence;
+        private readonly GraphicsDevice _device;
+        private readonly Shader _shader = new Shader();
+        private readonly ResourceSet[] _resourceSets = new ResourceSet[FrameCount];
 
-        private Display _display;
+        private readonly Display _display;
         
         public D3D12HelloTriangle(IntPtr windowHandle, int width, int height, bool useWarpDevice)
         {
             _device = new GraphicsDevice(useWarpDevice);
-            _pipeline = new GraphicsPipeline(_device, width, height, _shader);
-            _cb = new ShaderConstantBuffer(_device.Device);
-            _fence = new Fence(_device);
+            for (int i = 0; i < FrameCount; i++)
+            {
+                _resourceSets[i] = new ResourceSet(_device, width, height, _shader);
+            }
             
             _display = new Display(_device, windowHandle, width, height, FrameCount);
         }
         
         public void Dispose()
         {
-            _pipeline.Dispose();
+            _display.Dispose();
+            for (int i = 0; i < FrameCount; i++)
+            {
+                _resourceSets[i].Dispose();
+            }
             _device.Dispose();
-            _cb.Dispose();
-            _fence.Dispose();
         }
 
-        public float Ratio
-        {
-            get => _cb.Ratio;
-            set => _cb.Ratio = value;
-        }
+        public float Ratio { get; set; } = 1.0f;
 
         public void OnRender()
         {
             var frameIndex = _display.SwapChain.CurrentBackBufferIndex;
-
-            _cb.Update();
-            _pipeline.PopulateCommandList(_device.CommandAllocator, _display.RenderTargets[frameIndex],
-                _display.GetRtvCpuDescriptorHandle(frameIndex), _cb);
-            _device.CommandQueue.ExecuteCommandList(_pipeline.CommandList);
+            _resourceSets[frameIndex].Ratio = Ratio;
+            _resourceSets[frameIndex].Render(_display.RenderTargets[frameIndex],
+                _display.GetRtvCpuDescriptorHandle(frameIndex));
             _display.SwapChain.Present(1, 0);
-            _fence.WaitForPreviousFrame();
+            _resourceSets[frameIndex].Fence.WaitForPreviousFrame();
         }
         
         public void OnDestroy()
         {
-            _fence.WaitForPreviousFrame();
-            _fence.Dispose();
+            for (int i = 0; i < FrameCount; i++)
+            {
+                _resourceSets[i].Fence.WaitForPreviousFrame();
+            }
         }
     }
 }
