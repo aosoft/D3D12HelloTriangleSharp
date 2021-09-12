@@ -9,7 +9,7 @@ namespace D3D12HelloTriangleSharp
     {
         private BufferLayout _buffer;
         private readonly D3D12.Resource _constantBuffer;
-        private readonly D3D12.DescriptorHeap _cbvHeap;
+        private IntPtr _mapped = IntPtr.Zero;
 
         private static readonly int _bufferSize = (Marshal.SizeOf<BufferLayout>() + 255) & ~255;
         
@@ -25,40 +25,39 @@ namespace D3D12HelloTriangleSharp
                 D3D12.HeapFlags.None,
                 D3D12.ResourceDescription.Buffer(_bufferSize),
                 D3D12.ResourceStates.GenericRead);
-            _cbvHeap = device.CreateDescriptorHeap(new D3D12.DescriptorHeapDescription
+            Heap = device.CreateDescriptorHeap(new D3D12.DescriptorHeapDescription
             {
                 Type = D3D12.DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView,
                 DescriptorCount = 1,
-                Flags = D3D12.DescriptorHeapFlags.None,
+                Flags = D3D12.DescriptorHeapFlags.ShaderVisible,
                 NodeMask = 0
             });
             device.CreateConstantBufferView(new D3D12.ConstantBufferViewDescription
             {
-                BufferLocation = 0,
+                BufferLocation = _constantBuffer.GPUVirtualAddress,
                 SizeInBytes = _bufferSize
-            }, _cbvHeap.CPUDescriptorHandleForHeapStart);
+            }, Heap.CPUDescriptorHandleForHeapStart);
+            _mapped = _constantBuffer.Map(0, new D3D12.Range());
         }
 
         public void Dispose()
         {
+            if (_mapped != IntPtr.Zero)
+            {
+                _constantBuffer.Unmap(0);
+                _mapped = IntPtr.Zero;
+            }
             _constantBuffer.Dispose();
-            _cbvHeap.Dispose();
+            Heap.Dispose();
         }
 
         public void Update()
         {
-            var mapped = _constantBuffer.Map(0, new D3D12.Range());
-            try
-            {
-                Utilities.Write(mapped, ref _buffer);
-            }
-            finally
-            {
-                _constantBuffer.Unmap(0);
-            }
+            Utilities.Write(_mapped, ref _buffer);
         }
 
-        public D3D12.CpuDescriptorHandle CbvCpuDescriptorHandle => _cbvHeap.CPUDescriptorHandleForHeapStart;
+        public D3D12.DescriptorHeap Heap { get; }
+        public D3D12.GpuDescriptorHandle CbvGpuDescriptorHandle => Heap.GPUDescriptorHandleForHeapStart;
 
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
         private struct BufferLayout

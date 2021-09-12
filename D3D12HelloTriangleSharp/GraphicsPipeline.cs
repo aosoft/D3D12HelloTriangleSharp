@@ -49,8 +49,19 @@ namespace D3D12HelloTriangleSharp
                 Bottom = height,
             };
 
-            var rootSignatureDesc =
-                new D3D12.RootSignatureDescription(D3D12.RootSignatureFlags.AllowInputAssemblerInputLayout);
+            var rootSignatureDesc = new D3D12.RootSignatureDescription(
+                D3D12.RootSignatureFlags.AllowInputAssemblerInputLayout, new[]
+                {
+                    new D3D12.RootParameter(D3D12.ShaderVisibility.Pixel, new D3D12.DescriptorRange
+                    {
+                        RangeType = D3D12.DescriptorRangeType.ConstantBufferView,
+                        DescriptorCount = 1,
+                        BaseShaderRegister = 0,
+                        RegisterSpace = 0,
+                        OffsetInDescriptorsFromTableStart = int.MinValue
+                    })
+                });
+
             using (var signature = rootSignatureDesc.Serialize())
             {
                 _rootSignature = device.Device.CreateRootSignature(signature);
@@ -93,8 +104,8 @@ namespace D3D12HelloTriangleSharp
             var vertices = shader.GetVerticies((float)width / height);
             _vertexBuffer = device.Device.CreateCommittedResource(new D3D12.HeapProperties(D3D12.HeapType.Upload),
                 D3D12.HeapFlags.None,
-    D3D12.ResourceDescription.Buffer(Utilities.SizeOf(vertices)),
-    D3D12.ResourceStates.GenericRead);
+                D3D12.ResourceDescription.Buffer(Utilities.SizeOf(vertices)),
+                D3D12.ResourceStates.GenericRead);
             var vertexDataBegin = _vertexBuffer.Map(0, new D3D12.Range
             {
                 Begin = 0,
@@ -124,15 +135,17 @@ namespace D3D12HelloTriangleSharp
             CommandList.Dispose();
             _vertexBuffer.Dispose();
         }
-        
+
         public D3D12.GraphicsCommandList CommandList { get; }
 
         public void PopulateCommandList(D3D12.CommandAllocator commandAllocator, D3D12.Resource rt,
-            D3D12.CpuDescriptorHandle rtvHandle)
+            D3D12.CpuDescriptorHandle rtvHandle, ShaderConstantBuffer cb)
         {
             commandAllocator.Reset();
             CommandList.Reset(commandAllocator, _pipelineState);
             CommandList.SetGraphicsRootSignature(_rootSignature);
+            CommandList.SetDescriptorHeaps(cb.Heap);
+            CommandList.SetGraphicsRootDescriptorTable(0, cb.CbvGpuDescriptorHandle);
             CommandList.SetViewport(_viewport);
             CommandList.SetScissorRectangles(_scissorRect);
             CommandList.ResourceBarrierTransition(rt, D3D12.ResourceStates.Present, D3D12.ResourceStates.RenderTarget);
