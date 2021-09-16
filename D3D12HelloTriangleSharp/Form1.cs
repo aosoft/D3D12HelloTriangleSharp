@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -13,6 +14,7 @@ namespace D3D12HelloTriangleSharp
     public partial class Form1 : Form
     {
         private D3D12HelloTriangle? _renderer;
+        private Stopwatch _sw = new Stopwatch();
         
         public Form1()
         {
@@ -42,9 +44,10 @@ namespace D3D12HelloTriangleSharp
         {
             if (_renderer != null)
             {
+                _sw.Restart();
                 _renderer.Ratio = (float)trackBar1.Value / 100.0f;
                 _renderer.OnRender();
-                System.Threading.Thread.Sleep(20);
+                System.Threading.Thread.Sleep((int)_sw.Elapsed.TotalMilliseconds % 33);
             }
         }
     }
